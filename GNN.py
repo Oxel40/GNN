@@ -87,6 +87,22 @@ class Genome:
 			self.space[poss[0]][poss[1]] = self.Gene(1, (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
 			self.space[poss[0]][poss[1]].con[random.choice(self.lower_objects(poss[0]))] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 			random.choice(self.higher_objects(poss[0])).con[self.space[poss[0]][poss[1]]] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
+
+		if random.random() < self.settings["connection_add_rate"]:
+			gens = self.higher_objects(0)
+			random.shuffle(gens)
+			done = False
+			for o in gens:
+				pcons = self.lower_objects(o.poss[0])
+				random.shuffle(pcons)
+				for c in pcons:
+					if c not in o.con:
+						o.con[c] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
+						done = True
+						break
+				if done:
+					break
+
 	
 	def run(self, feed):
 		if len(feed) != self.input_size:
