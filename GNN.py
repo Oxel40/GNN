@@ -1,5 +1,6 @@
 import math
 import random
+from threading import Thread
 from copy import deepcopy
 from standard_settings import get_standard_settings
 
@@ -12,7 +13,7 @@ class Genome:
 		self.dimentions = dimentions				#tuple of dimentions (layers, space per layer)
 		self.input_size = input_size				#int of input size
 		self.output_size = output_size				#int of output size
-		self.alowed_activation = alowed_activation	#list of activationfunktions
+		self.alowed_activation = alowed_activation	#list of activationfunctions
 		self.settings = settings					#dict of settings
 
 		#Create a bace network
@@ -27,25 +28,23 @@ class Genome:
 		self.space.append([None] * self.output_size)
 		
 		poss = [random.randrange(0, self.dimentions[0]) + 1, random.randrange(0, self.dimentions[1])]
-		self.space[poss[0]][poss[1]] = self.Gene(1, (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
+		self.space[poss[0]][poss[1]] = self.Gene(self.output_size, (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
 		
 		fail = True
 		for x in range(self.input_size):
 			if random.random() < 0.5:
-				self.space[poss[0]][poss[1]].con[self.space[0][x]] = random.uniform(-1, 1)
+				self.space[poss[0]][poss[1]].con[self.space[0][x]] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 				fail = False
-		
 		if fail:
 			self.space[poss[0]][poss[1]].con[self.space[0][random.randrange(0, self.input_size)]] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 		
 		for x in range(self.output_size):
-			self.space[-1][x] = self.Gene(0, (self.dimentions[0] + 1, x), {}, random.choice(self.alowed_activation))
+			self.space[-1][x] = self.Gene(x, (self.dimentions[0] + 1, x), {}, random.choice(self.alowed_activation))
 			fail = True
 			for o in self.lower_objects(self.space[-1][x].poss[0]):
 				if random.random() < 0.5:
-					self.space[-1][x].con[o] = random.uniform(-1, 1)
+					self.space[-1][x].con[o] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 					fail = False
-			
 			if fail:
 				self.space[-1][x].con[random.choice(self.lower_objects(self.space[-1][x].poss[0]))] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 
@@ -56,6 +55,16 @@ class Genome:
 				break
 		if lose:
 			self.space[poss[0]][poss[1]] = None
+
+	def del_lose_genes(self):
+		for x in list(set(self.higher_objects(0)) - set(self.space[-1])):
+			lose = True
+			for o in self.higher_objects(x.poss[0]):
+				if x in o.con:
+					lose = False
+					break
+			if lose:
+				self.space[x.poss[0]][x.poss[1]] = None
 		
 	def lower_objects(self, layer):
 		out = []
@@ -80,11 +89,25 @@ class Genome:
 				if self.space[1 + x][y] == None:
 					out.append((1 + x, y))
 		return out
+
+	def count_genes(self):
+		out = 0
+		for x in range(self.dimentions[0]):
+			for y in range(self.dimentions[1]):
+				if self.space[1 + x][y] != None:
+					out += 1
+		if out == 0:
+			for x in range(self.output_size):
+				if self.space[-1][x] != None:
+					out += 1
+		else:
+			out += self.output_size
+		return out
 	
 	def mutate(self):
 		if random.random() < self.settings["node_add_rate"]:
 			poss = random.choice(self.free_space())
-			self.space[poss[0]][poss[1]] = self.Gene(1, (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
+			self.space[poss[0]][poss[1]] = self.Gene(self.count_genes(), (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
 			self.space[poss[0]][poss[1]].con[random.choice(self.lower_objects(poss[0]))] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 			random.choice(self.higher_objects(poss[0])).con[self.space[poss[0]][poss[1]]] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
 
@@ -103,6 +126,28 @@ class Genome:
 				if done:
 					break
 
+		if random.random() < self.settings["weight_change_rate"]:
+			gens = self.higher_objects(0)
+			random.shuffle(gens)
+			done = False
+			for o in gens:
+				pcons = self.lower_objects(o.poss[0])
+				random.shuffle(pcons)
+				for c in pcons:
+					if c in o.con:
+						o.con[c] *= random.uniform(self.settings["weight_change_magnitude_min"], self.settings["weight_change_magnitude_max"])
+						done = True
+						break
+				if done:
+					break
+
+		if random.random() < self.settings["activation_change_rate"]:
+			gens = self.higher_objects(0)
+			o = random.choice(gens)
+			print(o)
+			f = list(set(self.alowed_activation) - set([o.func]))
+			if len(f) != 0:
+				o.func = random.choice(f)
 	
 	def run(self, feed):
 		if len(feed) != self.input_size:
@@ -135,27 +180,49 @@ class Genome:
 			for x in self.con:
 				out += x.run() * self.con[x]
 			return self.func(out)
-		
-
-class Individual:
-	def __init__(self, u_id, genes=[]):
-		self.id = u_id
-		self.genes = genes
-	
-	def run(self, data):
-		pass
 
 
 class Population:
-	def __init__(self, size):
+	def __init__(self, size, net_dimentions, input_size, output_size, alowed_activation, settings):
 		self.size = size
+		self.settings = settings
+		self.individuals = []
+		for o in range(self.size):
+			self.individuals.append(Genome(o, net_dimentions, input_size, output_size, alowed_activation, settings))
 	
-	
+	def update_settings(self, settings):
+		self.settings = settings
+		for x in self.individuals:
+			x.settings = settings
+
+	def thread(self, thread_id, individuals, feed, fitt_func, results):
+		for x in range(len(individuals)):
+			results[individuals[x].id] = fitt_func(individuals[x].run(feed))
+
+	def run(self, feed, fitt_func):
+		threads = [None] * self.settings["computing_threads"]
+		results = [None] * self.size
+		for i in range(len(threads)):
+			threads[i] = Thread(target=self.thread, args=(i, self.individuals[i::self.settings["computing_threads"]], feed, fitt_func, results))
+			threads[i].start()
+		for i in range(len(threads)):
+			threads[i].join()
+		return results
+
+
 class Activation:
 	def sigmoid(x):
 		sigm = 1. / (1. + math.exp(-x))
 		return sigm
 
+	def relu(x):
+		return x if x > 0 else 0
+
+	def lrelu(x):
+		return x if x > 0 else (0.01 * x)
+
+	def tanh(x):
+		return math.tanh(x)
 
 
 

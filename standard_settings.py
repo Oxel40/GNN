@@ -1,6 +1,8 @@
 def get_standard_settings():
 	out = {}
 
+	out["computing_threads"] = 4
+
 	out["node_add_rate"] = 0.2
 	out["connection_add_rate"] = 0.3
 
@@ -12,5 +14,6 @@ def get_standard_settings():
 
 	out["activation_change_rate"] = 0.
 
-	#out[""] = 	
+	out["sexual_breading"] = False
+
 	return out
