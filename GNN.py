@@ -195,15 +195,21 @@ class Population:
 		for x in self.individuals:
 			x.settings = settings
 
-	def thread(self, thread_id, individuals, feed, fitt_func, results):
-		for x in range(len(individuals)):
-			results[individuals[x].id] = fitt_func(individuals[x].run(feed))
+	def thread(self, thread_id, individuals, feed, results, **kwargs):
+		if "fitt_func" in kwargs:
+			fitt_func = kwargs["fitt_func"]
+			for x in range(len(individuals)):
+				results[individuals[x].id] = fitt_func(individuals[x].run(feed))
+		else:
+			for x in range(len(individuals)):
+				results[individuals[x].id] = individuals[x].run(feed)
 
-	def run(self, feed, fitt_func):
+
+	def run(self, feed):
 		threads = [None] * self.settings["computing_threads"]
 		results = [None] * self.size
 		for i in range(len(threads)):
-			threads[i] = Thread(target=self.thread, args=(i, self.individuals[i::self.settings["computing_threads"]], feed, fitt_func, results))
+			threads[i] = Thread(target=self.thread, args=(i, self.individuals[i::self.settings["computing_threads"]], feed, results))
 			threads[i].start()
 		for i in range(len(threads)):
 			threads[i].join()
