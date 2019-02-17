@@ -4,6 +4,7 @@ def get_standard_settings():
 	out["computing_threads"] = 4
 
 	out["node_add_rate"] = 0.2
+	out["node_remove_rate"] = 0.05
 	out["connection_add_rate"] = 0.3
 
 	out["new_weight_min"] = -6.

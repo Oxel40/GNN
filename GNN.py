@@ -106,10 +106,22 @@ class Genome:
 	
 	def mutate(self):
 		if random.random() < self.settings["node_add_rate"]:
-			poss = random.choice(self.free_space())
-			self.space[poss[0]][poss[1]] = self.Gene(self.count_genes(), (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
-			self.space[poss[0]][poss[1]].con[random.choice(self.lower_objects(poss[0]))] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
-			random.choice(self.higher_objects(poss[0])).con[self.space[poss[0]][poss[1]]] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
+			try:
+				poss = random.choice(self.free_space())
+				self.space[poss[0]][poss[1]] = self.Gene(self.count_genes(), (poss[0], poss[1]), {}, random.choice(self.alowed_activation))
+				self.space[poss[0]][poss[1]].con[random.choice(self.lower_objects(poss[0]))] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
+				random.choice(self.higher_objects(poss[0])).con[self.space[poss[0]][poss[1]]] = random.uniform(self.settings["new_weight_min"], self.settings["new_weight_max"])
+			except:
+				pass
+
+		if random.random() < self.settings["node_remove_rate"]:
+			nodes = list(set(self.higher_objects(0)).intersection(set(self.lower_objects(-1))))
+			node = random.choice(nodes)
+			poss = node.poss
+			for x in self.higher_objects(poss[0]):
+				if node in x.con:
+					del x.con[node]
+			self.space[poss[0]][poss[1]] = None
 
 		if random.random() < self.settings["connection_add_rate"]:
 			gens = self.higher_objects(0)
@@ -150,13 +162,16 @@ class Genome:
 				o.func = random.choice(f)
 	
 	def run(self, feed):
-		if len(feed) != self.input_size:
-			raise ValueError("Lenght of feed: {0}, does not match the set input_size of: {1}".format(len(feed), self.input_size))
-		for y in range(self.input_size):
-			self.space[0][y].val = feed[y]
+		if len(feed[0]) != self.input_size:
+			raise ValueError("Lenght of feed: {0}, does not match the set input_size of: {1}".format(len(feed[0]), self.input_size))
 		out = []
-		for x in range(self.output_size):
-			out.append(self.space[-1][x].run())
+		for z in range(len(feed)):
+			bit = []
+			for y in range(self.input_size):
+				self.space[0][y].val = feed[z][y]
+			for x in range(self.output_size):
+				bit.append(self.space[-1][x].run())
+			out.append(bit)
 		return out
 
 	
@@ -183,7 +198,7 @@ class Genome:
 
 
 class Population:
-	def __init__(self, size, net_dimentions, input_size, output_size, alowed_activation, settings):
+	def __init__(self, size, net_dimentions, input_size, output_size, alowed_activation, settings = get_standard_settings()):
 		self.size = size
 		self.settings = settings
 		self.individuals = []
@@ -195,31 +210,55 @@ class Population:
 		for x in self.individuals:
 			x.settings = settings
 
-	def thread(self, thread_id, individuals, feed, results, **kwargs):
-		if "fitt_func" in kwargs:
-			fitt_func = kwargs["fitt_func"]
+	def thread(self, thread_id, individuals, feed, results, fitt_func = None, y_ = None):
+		if fitt_func != None:
 			for x in range(len(individuals)):
-				results[individuals[x].id] = fitt_func(individuals[x].run(feed))
+				results[individuals[x].id] = fitt_func(individuals[x].run(feed), y_)
 		else:
 			for x in range(len(individuals)):
 				results[individuals[x].id] = individuals[x].run(feed)
 
-
-	def run(self, feed):
+	def run(self, feed, fitt_func = None, y_ = None):
 		threads = [None] * self.settings["computing_threads"]
 		results = [None] * self.size
-		for i in range(len(threads)):
-			threads[i] = Thread(target=self.thread, args=(i, self.individuals[i::self.settings["computing_threads"]], feed, results))
-			threads[i].start()
+		if fitt_func != None:
+			for i in range(len(threads)):
+				threads[i] = Thread(target=self.thread, args=(i, self.individuals[i::self.settings["computing_threads"]], feed, results, fitt_func, y_))
+				threads[i].start()
+		else:
+			for i in range(len(threads)):
+				threads[i] = Thread(target=self.thread, args=(i, self.individuals[i::self.settings["computing_threads"]], feed, results))
+				threads[i].start()
 		for i in range(len(threads)):
 			threads[i].join()
 		return results
 
+	def fitt(self, feed, fitt_func, y_ = None, return_best = False):
+		results = self.run(feed, fitt_func = fitt_func, y_ = y_)
+		best = deepcopy(self.individuals[results.index(max(results))])
+		for x in range(self.size):
+			self.individuals[x] = deepcopy(best)
+			self.individuals[x].id = x
+
+		for x in range(self.size - 1):
+			self.individuals[x].mutate()
+		if return_best:
+			return max(results)
+
+	def get_fittest_individual(self, feed, fitt_func, y_ = None):
+		results = self.run(feed, fitt_func = fitt_func, y_ = y_)
+		best = deepcopy(self.individuals[results.index(max(results))])
+		return best
+
 
 class Activation:
 	def sigmoid(x):
-		sigm = 1. / (1. + math.exp(-x))
-		return sigm
+		try:
+			sigm = 1. / (1. + math.exp(-x))
+			return sigm
+		except OverflowError:
+			sigm = 1. / (1. + float("inf"))
+			return sigm
 
 	def relu(x):
 		return x if x > 0 else 0
