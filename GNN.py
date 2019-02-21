@@ -268,8 +268,3 @@ class Activation:
 
 	def tanh(x):
 		return math.tanh(x)
-
-
-
-
-
