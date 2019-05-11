@@ -202,6 +202,10 @@ class Population:
 		self.size = size
 		self.settings = settings
 		self.individuals = []
+		self.net_dimentions = net_dimentions
+		self.input_size = input_size
+		self.output_size = output_size
+		self.alowed_activation = alowed_activation
 		for o in range(self.size):
 			self.individuals.append(Genome(o, net_dimentions, input_size, output_size, alowed_activation, settings))
 	
@@ -236,12 +240,17 @@ class Population:
 	def fitt(self, feed, fitt_func, y_ = None, return_best = False):
 		results = self.run(feed, fitt_func = fitt_func, y_ = y_)
 		best = deepcopy(self.individuals[results.index(max(results))])
+		print(best.id)
 		for x in range(self.size):
 			self.individuals[x] = deepcopy(best)
 			self.individuals[x].id = x
 
-		for x in range(self.size - 1):
-			self.individuals[x].mutate()
+		for x in range(1, self.size):
+			if x > self.size * self.settings["new_individual_rate"]:
+				self.individuals[x].mutate()
+			else:
+				self.individuals[x] = Genome(x, self.net_dimentions, self.input_size, self.output_size, self.alowed_activation, self.settings)
+
 		if return_best:
 			return max(results)
 

@@ -16,5 +16,6 @@ def get_standard_settings():
 	out["activation_change_rate"] = 0.
 
 	out["sexual_breeding"] = False
+	out["new_individual_rate"] = 0.3
 
 	return out
