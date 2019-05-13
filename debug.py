@@ -10,7 +10,6 @@ sett = GNN.get_standard_settings()
 
 sett["weight_change_magnitude_min"] = 0
 sett["weight_change_magnitude_max"] = 2
-sett["new_individual_rate"] = 1.
 
 e = GNN.Population(1000, (5, 4), 3, 1, [GNN.Activation.sigmoid], sett)
 

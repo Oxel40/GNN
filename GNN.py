@@ -116,12 +116,13 @@ class Genome:
 
 		if random.random() < self.settings["node_remove_rate"]:
 			nodes = list(set(self.higher_objects(0)).intersection(set(self.lower_objects(-1))))
-			node = random.choice(nodes)
-			poss = node.poss
-			for x in self.higher_objects(poss[0]):
-				if node in x.con:
-					del x.con[node]
-			self.space[poss[0]][poss[1]] = None
+			if nodes != None:
+				node = random.choice(nodes)
+				poss = node.poss
+				for x in self.higher_objects(poss[0]):
+					if node in x.con:
+						del x.con[node]
+				self.space[poss[0]][poss[1]] = None
 
 		if random.random() < self.settings["connection_add_rate"]:
 			gens = self.higher_objects(0)
@@ -240,7 +241,6 @@ class Population:
 	def fitt(self, feed, fitt_func, y_ = None, return_best = False):
 		results = self.run(feed, fitt_func = fitt_func, y_ = y_)
 		best = deepcopy(self.individuals[results.index(max(results))])
-		print(best.id)
 		for x in range(self.size):
 			self.individuals[x] = deepcopy(best)
 			self.individuals[x].id = x
